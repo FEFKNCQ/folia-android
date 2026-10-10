@@ -1,0 +1,33 @@
+# 依赖
+node_modules/
+_runtime/jsproj/node_modules/
+vendor/kugoumusicapi/node_modules/
+
+# 构建产物
+dist/
+build/
+android/build/
+android/app/build/
+android/app/src/main/assets/public/
+android/.gradle/
+android/local.properties
+*.apk
+*.aab
+
+# 打包中间产物
+_runtime/jsproj/nodejs-project.zip
+android/app/src/main/assets/nodejs-project.zip
+android/app/src/main/assets/webapp.zip
+
+# 本地环境与密钥
+.env
+*.local
+qq-session-secret.txt
+
+# 旧版本备份与临时文件
+src-0.6.7-backup/
+*.log
+folia-shot*.jpg
+.DS_Store
+.workbuddy/
+.github/

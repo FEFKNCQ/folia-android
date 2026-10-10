@@ -1,0 +1,13 @@
+{
+  "name": "folia-nodejs-project",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Folia 安卓内置后端：四个音源的 Node 服务",
+  "type": "commonjs",
+  "dependencies": {
+    "@neteasecloudmusicapienhanced/api": "4.36.2",
+    "kugoumusicapi": "https://github.com/MakcRe/KuGouMusicApi/archive/refs/tags/v1.5.1.tar.gz",
+    "@yakult-green-tea/qq-music-api": "3.1.4",
+    "bodian-music-api": "0.1.2"
+  }
+}
