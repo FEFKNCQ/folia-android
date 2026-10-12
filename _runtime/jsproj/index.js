@@ -22,10 +22,36 @@ const path = require('node:path');
 // 之后用 `adb shell cat` 就能读到。
 const LOG_FILE = path.join(__dirname, 'node-backend.log');
 
+// ------------------------------------------------------- 状态目录（跨更新保留）
+// 所有需要跨启动保留的状态（音源会话、设备 ID、匿名 token）都不能放在
+// nodejs-project/ 里面 —— 这个目录在**每次安装新版本 APK 时都会被整体重新解包覆盖**，
+// 放在这里的会话文件会随更新一起被清掉（这就是"波点更新后登录丢失"的真正原因）。
+// filesDir/folia-state/ 与 nodejs-project 同级，不受解包影响。
+const STATE_DIR = path.join(__dirname, '..', 'folia-state');
+try {
+  fs.mkdirSync(STATE_DIR, { recursive: true });
+} catch {
+  /* ignore */
+}
+// 迁移：把旧位置（nodejs-project/）里的状态文件搬过来，老用户无感升级。
+const MIGRATE_OLD = [
+  'bodian-session.json', path.join(STATE_DIR, 'bodian-device-id.txt'),
+  'qq-session-secret.txt', 'qq-auth-session.json', 'qq-device-state.json',
+];
+for (const name of MIGRATE_OLD) {
+  try {
+    const from = path.join(__dirname, name);
+    const to = path.join(STATE_DIR, name);
+    if (fs.existsSync(from) && !fs.existsSync(to)) fs.renameSync(from, to);
+  } catch {
+    /* 迁移失败不致命 */
+  }
+}
+
 // Android 上根本没有 /tmp，Node 的 os.tmpdir() 会退化成 "/tmp"，
 // 于是任何往临时目录写文件的库都会 ENOENT（网易云的 server 就要在 tmpdir 里
 // 读写 anonymous_token，不修这个它直接起不来）。必须在 require 之前指到可写目录。
-const TMP_DIR = path.join(__dirname, 'tmp');
+const TMP_DIR = path.join(STATE_DIR, 'tmp');
 try {
   fs.mkdirSync(TMP_DIR, { recursive: true });
 } catch {
@@ -226,7 +252,7 @@ function startQq() {
     //   QQ_SESSION_SECRET     —— 加密密钥（必须跨重启稳定，否则解不开）
     // 见 dist/src/services/auth/fileAuthSessionRepository.js。
     const crypto = require('node:crypto');
-    const secretFile = path.join(__dirname, 'qq-session-secret.txt');
+    const secretFile = path.join(STATE_DIR, 'qq-session-secret.txt');
     let qqSecret = '';
     try {
       qqSecret = fs.readFileSync(secretFile, 'utf-8').trim();
@@ -241,10 +267,10 @@ function startQq() {
         log('QQ 会话密钥落盘失败（本次仍可用）:', error && error.message);
       }
     }
-    process.env.QQ_AUTH_SESSION_PATH = path.join(__dirname, 'qq-auth-session.json');
+    process.env.QQ_AUTH_SESSION_PATH = path.join(STATE_DIR, 'qq-auth-session.json');
     // 设备上下文（含 QIMEI）默认也是内存态（createMemoryDeviceContextRepository）。
     // 落盘后重启就不必重新做一次 device-bootstrap 引导，登录也更稳。
-    process.env.QQ_AUTH_STATE_PATH = path.join(__dirname, 'qq-device-state.json');
+    process.env.QQ_AUTH_STATE_PATH = path.join(STATE_DIR, 'qq-device-state.json');
     process.env.QQ_SESSION_SECRET = qqSecret;
 
     // 这个包在根部就会 app.listen()，端口取自 process.env.PORT，必须先设好。
@@ -259,8 +285,13 @@ function startQq() {
     //   （这就是之前日志里出现两个 auth-session.ready——一个 memory 一个 file——的原因：
     //     文件仓的服务建了，但控制器用的单例还是内存的。）
     try {
-      const qrNode = require('@yakult-green-tea/qq-music-api/dist/src/services/auth/qrLogin.node.js');
-      const fileAuth = require('@yakult-green-tea/qq-music-api/dist/src/services/auth/fileAuthSessionRepository.js');
+      // 这个包的 package.json 用 exports 字段封死了内部子路径，
+      // `require('@yakult-green-tea/qq-music-api/dist/src/...')` 会报
+      // "Package subpath ... is not defined by exports"。
+      // 绕过办法：用 require.resolve 拿到包根，再按**绝对文件路径** require。
+      const qqPkgDir = path.dirname(require.resolve('@yakult-green-tea/qq-music-api/package.json'));
+      const qrNode = require(path.join(qqPkgDir, 'dist', 'src', 'services', 'auth', 'qrLogin.node.js'));
+      const fileAuth = require(path.join(qqPkgDir, 'dist', 'src', 'services', 'auth', 'fileAuthSessionRepository.js'));
       qrNode.configureAuthSessionRepository(fileAuth.createConfiguredAuthSessionRepository());
       log('QQ 会话仓库已注入文件态（单例）');
     } catch (error) {
@@ -340,7 +371,7 @@ function startBodian() {
   // deviceId 必须是稳定的 32 位小写十六进制；这里从文件里读，保证重启后设备身份不变。
   const fs = require('node:fs');
   const crypto = require('node:crypto');
-  const deviceIdFile = path.join(__dirname, 'bodian-device-id.txt');
+  const deviceIdFile = path.join(STATE_DIR, 'bodian-device-id.txt');
 
   let deviceId = '';
   try {
@@ -359,7 +390,7 @@ function startBodian() {
 
   // 会话必须落盘：原来只放在内存里（`let session = null`），Node 进程一随 App 重启就没，
   // 表现就是"波点登录之后重启软件就失效"。
-  const sessionFile = path.join(__dirname, 'bodian-session.json');
+  const sessionFile = path.join(STATE_DIR, 'bodian-session.json');
 
   let revision = 0;
   let session = null;

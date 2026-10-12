@@ -3,12 +3,15 @@ import { installGlobalVisualizerFrameRateLimiter } from './utils/frameRateLimite
 import { installCapacitorBodianBridge } from './platform/capacitorBodianBridge';
 import { installAndroidMusicBridge } from './platform/androidMusicBridge';
 import { installViewRouteLogger } from './platform/viewRouteLogger';
+import { installBootErrorOverlay } from './platform/bootErrorOverlay';
 import { installConsoleLogCapture } from './utils/consoleLogBuffer';
 import { installDebugModule } from './services/debug/debugModule';
 import { installMemorySampleFeed } from './services/debug/memorySamples';
 // import { installCoverSizeAudit } from './services/debug/coverSizeSamples';
 // @ts-ignore
 globalThis.Buffer = Buffer;
+// 启动诊断必须最先安装：越早，捕获到的启动期错误越全。
+installBootErrorOverlay();
 // First, so the debug overlay's console tab has the startup lines too - they are where a failure
 // to reach a library or restore a session shows up.
 installConsoleLogCapture();

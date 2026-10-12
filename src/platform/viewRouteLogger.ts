@@ -25,13 +25,13 @@ export const installViewRouteLogger = (): void => {
   try {
     // 先打一行初始值，避免"启动后没切换过"时看不到任何信息。
     const initial = useAppViewStore.getState().view;
-    console.info(`[Route] view=${initial} (${describe(initial)})`);
+    console.log(`[Route] view=${initial} (${describe(initial)})`);
 
     let previous = initial;
     useAppViewStore.subscribe((state) => {
       if (state.view === previous) return;
       previous = state.view;
-      console.info(`[Route] view=${state.view} (${describe(state.view)})`);
+      console.log(`[Route] view=${state.view} (${describe(state.view)})`);
     });
   } catch (error) {
     console.warn('[Route] 视图日志安装失败', error);

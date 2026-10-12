@@ -3,6 +3,7 @@ package top.izuna.foliamajor;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.os.Build;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -84,6 +85,18 @@ public class MainActivity extends BridgeActivity {
             localMusicBridge.attach();
         } else {
             Log.w(TAG, "WebView 尚未就绪，本地音乐导入桥未注册");
+        }
+
+        // 前台服务：常驻通知 + 保活 + 媒体会话，后台播放不中断。
+        Bridge mediaBridge = getBridge();
+        WebView mediaWebView = mediaBridge == null ? null : mediaBridge.getWebView();
+        if (mediaWebView != null) {
+            KeepAliveService.setSharedWebView(mediaWebView);
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(new Intent(this, KeepAliveService.class));
+        } else {
+            startService(new Intent(this, KeepAliveService.class));
         }
 
         startEmbeddedBackends();

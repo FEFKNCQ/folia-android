@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import type { RefObject } from 'react';
 import { PlayerState } from '../types';
+import { isCapacitorAndroid } from '../platform/runtime';
 import type { SongResult } from '../types';
 import { getSongAlbumLabel, getSongArtistLabel, getSongCoverUrl } from '../services/onlineMusic/songMetadata';
 import {
@@ -50,6 +51,45 @@ export const useMediaSessionBridge = ({
     mediaSessionNextRef,
     isNowPlayingControlDisabledRef,
 }: UseMediaSessionBridgeOptions) => {
+    // [folia] 安卓原生媒体通知：把歌曲信息与播放状态推给原生 MediaSession
+    //（KeepAliveService 的 MediaStyle 通知），让通知栏显示歌名/歌手/封面并带控制按钮。
+    useEffect(() => {
+        if (!isCapacitorAndroid()) return;
+        (window as unknown as Record<string, unknown>).__foliaMediaCommands = {
+            play: () => { void mediaSessionPlayRef.current?.(); },
+            pause: () => { mediaSessionPauseRef.current?.(); },
+            prev: () => { mediaSessionPrevRef.current?.(); },
+            next: () => { void mediaSessionNextRef.current?.(); },
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!isCapacitorAndroid()) return;
+        const nativeApi = (window as unknown as { FoliaMedia?: { updateMedia: (t: string, a: string, al: string, art: string) => void } | undefined }).FoliaMedia;
+        if (!nativeApi || !currentSong) return;
+        try {
+            nativeApi.updateMedia(
+                currentSong.name ?? '',
+                getSongArtistLabel(currentSong),
+                getSongAlbumLabel(currentSong),
+                getSongCoverUrl(currentSong) ?? '',
+            );
+        } catch {
+            /* 原生侧未就绪时忽略 */
+        }
+    }, [currentSong]);
+
+    useEffect(() => {
+        if (!isCapacitorAndroid()) return;
+        const nativeApi = (window as unknown as { FoliaMedia?: { updatePlayback: (playing: boolean, position: number) => void } | undefined }).FoliaMedia;
+        if (!nativeApi) return;
+        try {
+            nativeApi.updatePlayback(playerState === PlayerState.PLAYING, audioRef.current?.currentTime ?? 0);
+        } catch {
+            /* ignore */
+        }
+    }, [playerState, audioSrc]);
+
     useEffect(() => {
         if (!('mediaSession' in navigator)) {
             return;

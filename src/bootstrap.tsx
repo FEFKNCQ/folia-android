@@ -17,6 +17,7 @@ import { installLibrarySuiteChromeCommands } from './library/app/installLibraryS
 import { installNativeDragGuard } from './utils/nativeDragGuard';
 import { bootNavidromeServerPreset } from './services/navidromeServerPreset';
 import { isNavidromeEnabled } from './services/navidromeService';
+import { restoreProviderAuth } from './platform/restoreProviderAuth';
 import { setNavidromeEnabledState } from './stores/useLibraryStore';
 import { isMainAppSurface, isObsBrowserSourceSurface, isRemoteControlSurface, obsSourceKind } from './utils/appSurface';
 // 副作用 import：store 在模块加载时就把 `<html data-reduce-motion>` 写好并保持同步。放在 bootstrap
@@ -100,3 +101,6 @@ void Promise.allSettled([bootFolium(), bootNavidrome()])
     .finally(() => {
         void initializeLocalCoverRuntime().finally(renderApp);
     });
+
+// 安卓端：启动时恢复波点/QQ 的登录态（后端会话已落盘，前端账号状态需要同步）。
+void restoreProviderAuth();

@@ -13,8 +13,13 @@ export const useBodianLibrary = () => {
     const refresh = useCallback(async () => {
         const current = ++generation.current;
         const store = useOnlineProviderAccountStore.getState();
+        console.log('[BodianAuth] refresh 开始');
         try {
-            if (!omni.getProviderAvailability('bodian').configured || !omni.getProviderCapabilities('bodian').auth) {
+            const diagAvailability = omni.getProviderAvailability('bodian');
+            const diagCapabilities = omni.getProviderCapabilities('bodian');
+            console.log(`[BodianAuth] configured=${diagAvailability.configured} auth=${diagCapabilities.auth}`);
+            if (!diagAvailability.configured || !diagCapabilities.auth) {
+                console.log('[BodianAuth] 被前置闸门拦截（未登录的原因）');
                 store.clearAccount('bodian');
                 await pendingSave.current.catch(() => {});
                 await clearProviderAccountSnapshot('bodian');
@@ -22,6 +27,7 @@ export const useBodianLibrary = () => {
             }
             store.updateAccount('bodian', { freshness: 'refreshing', error: undefined });
             const user = await omni.getLoginStatus('bodian');
+            console.log(`[BodianAuth] login_status 返回: ${user ? `已登录 id=${(user as {id?: unknown}).id}昵称=${(user as {nickname?: unknown}).nickname}` : 'null（未登录）'}`);
             if (generation.current !== current) return false;
             if (!user) {
                 store.clearAccount('bodian');
