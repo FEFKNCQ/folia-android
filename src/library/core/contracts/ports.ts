@@ -15,6 +15,11 @@ export interface LibraryPlaybackPort {
      * 返回队列真正收下的条数（已在队列里的不算），宿主不报数时为 void。
      */
     enqueueAll(tracks: SongResult[], options?: LibraryEnqueueOptions): number | void;
+    /**
+     * fb3：暂停 / 继续正在播放的那首（宿主的播放开关）。「播放后进入的视图」是「留在原处」时，网格卡片上正在播放的
+     * 那首的播放键改为它。宿主没给时为 undefined（卡片照旧「立即播放」）。
+     */
+    togglePlayback?(): void;
 }
 
 /** 整批入队的选项（与应用播放控制器 addOnlineSongsToQueue 的同名选项一致）。 */

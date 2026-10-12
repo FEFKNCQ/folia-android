@@ -198,9 +198,10 @@ export type QrLoginState =
 
 /**
  * 扫码失败的结构化原因：「在手机上取消」是用户自己的操作，不需要诊断入口；「连接被重置」是轮询请求被
- * 上游直接断开，同一网络出口和设备标识下反复重试多半无效，界面要提示换网络或重启应用。
+ * 上游直接断开，同一网络出口和设备标识下反复重试多半无效，界面要提示换网络或重启应用；「登录设备超限」是
+ * 账号侧的原因（QQ 音乐凭据交换返回 20279），重启和换网络都没用，界面要引导用户去清理登录设备。
  */
-export type QrLoginErrorReason = 'canceled-on-device' | 'connection-reset';
+export type QrLoginErrorReason = 'canceled-on-device' | 'connection-reset' | 'device-limit';
 
 // 扫码登录失败的几种形态，决定登录弹窗要不要给出「复制诊断信息」入口。
 // 没扫码就过期属于正常情况，不算失败；扫过码却过期，多半是手机端确认被拒。
@@ -212,7 +213,9 @@ export type QrLoginFailureKind =
     // 用户在手机上取消了这次登录：照常可以重试（可能要先等冷却），不给诊断入口。
     | 'canceled-on-device'
     // 轮询请求被上游断开（ECONNRESET）：照常给诊断入口，状态行提示换网络或重启应用。
-    | 'connection-reset';
+    | 'connection-reset'
+    // 账号的登录设备数已达上限：照常给诊断入口，简单办法换成清理登录设备的步骤。
+    | 'device-limit';
 
 export type ProviderErrorCode =
     | 'auth-required'

@@ -504,6 +504,36 @@ const isQrNaturalExpiry = (response: any): boolean => (
     || ['failureStage', 'failureReason', 'upstreamCode', 'retryAfterMs'].every(field => response?.[field] === undefined)
 );
 
+// QQ 音乐账号的登录设备数已达上限时凭据交换返回的上游码（与 .github/triage/login-playbook.json 的 qq-device-limit 同一条判定）。
+const QQ_DEVICE_LIMIT_UPSTREAM_CODE = 20279;
+
+// 最近一次要码的时刻：只认这之后的凭据交换记录，主进程环形记录里上一轮的结果不算。
+let qrKeyRequestedAt = 0;
+
+// 登录设备超限的判定。微信通道的凭据交换没有回退，20279 直接出现在响应的 upstreamCode 上。QQ 通道交换失败后
+// 后端会拿 MQTT 凭据再验一次，验证也被拒（code 1000）才失败在 credential-validation，响应里只剩后一次的码；
+// 20279 只在主进程钩子记下的 qq-auth.upstream-result 里，桌面版去那里找本轮最后一次凭据交换。网页版拿不到，按普通失败处理。
+const isQqDeviceLimit = async (response: any): Promise<boolean> => {
+    if (Number(response?.upstreamCode) === QQ_DEVICE_LIMIT_UPSTREAM_CODE) return true;
+    if (response?.failureStage !== 'credential-validation') return false;
+    const getSnapshot = typeof window === 'undefined' ? undefined : window.electron?.getLoginDiagnostics;
+    if (!getSnapshot) return false;
+    try {
+        const snapshot = await getSnapshot('qq');
+        if (snapshot?.providerId !== 'qq') return false;
+        const exchanges = snapshot.authEvents.filter(event => (
+            event.at >= qrKeyRequestedAt
+            && event.event === 'qq-auth.upstream-result'
+            && (event.details as { phase?: unknown } | null)?.phase === 'credential-exchange'
+        ));
+        const last = exchanges[exchanges.length - 1]?.details as { upstreamCode?: unknown } | undefined;
+        return Number(last?.upstreamCode) === QQ_DEVICE_LIMIT_UPSTREAM_CODE;
+    } catch {
+        // 取不到快照只是少了这条提示，失败照常交给会话。
+        return false;
+    }
+};
+
 // 后端把 QQ / 微信的原生扫码状态翻译成网易的那套码值：801 等待、802 已扫、803 确认（带 session）、800 过期或失败。
 // 800 靠结构化字段区分过期与失败（上游拒绝、MQTT 断开、凭据交换失败、手机上取消……）；失败与别的返回码都原样交给会话。
 const checkQr = async (key: string): Promise<QrLoginState> => {
@@ -531,6 +561,8 @@ const checkQr = async (key: string): Promise<QrLoginState> => {
         message: `code ${response?.code ?? 'none'}: ${typeof response?.message === 'string' && response.message ? response.message : 'no message'}${stage}`,
         // 手机上取消是用户自己的操作：交给会话的是结构化原因，界面据此不给诊断入口；冷却时长一并交出，重试暂缓。
         ...(response?.failureReason === 'user-canceled' ? { reason: 'canceled-on-device' as const } : {}),
+        // 登录设备超限是账号侧的原因：界面据此把简单办法换成清理登录设备的步骤。
+        ...(await isQqDeviceLimit(response) ? { reason: 'device-limit' as const } : {}),
         ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
         detail: qrFailureDetail(response),
     };
@@ -778,6 +810,7 @@ export const qqProvider: OnlineMusicProvider = {
         // 要码与生成二维码失败时，transport 的错误已带着 HTTP 状态、后端原文（含失败阶段与原因）与退避时长；
         // 没拿到 key 或图片就直接失败：空 key 只会换来后端的 400，空图片会让界面一直转圈。
         async getQrKey(methodId) {
+            qrKeyRequestedAt = Date.now();
             const response = await requestQq<any>('login_qr_key', { channel: resolveQrLoginMethodId(methodId) });
             const key = String(response?.data?.unikey || '');
             if (key.trim()) return key;

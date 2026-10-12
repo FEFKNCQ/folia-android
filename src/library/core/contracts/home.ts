@@ -45,6 +45,16 @@ export type LibraryLocalCatalogSnapshot = {
 export interface LibraryHomeData {
     onPlaySong: (song: SongResult, playlistCtx?: SongResult[], isFmCall?: boolean) => void;
     onBackToPlayer: () => void;
+    /**
+     * fb3：暂停 / 继续正在播放的那首（与播放条、空格同一个开关）。资料库里「正在播放的那张卡」上的播放键用它，
+     * 而不是再「立即播放」一次。身份稳定。
+     */
+    onTogglePlayback?: () => void;
+    /**
+     * fb3：进入播放视图——按「播放后进入的视图」去 Lattice 或播放页，「留在原处」时去播放页（与播放胶囊同一条规则）。
+     * bravais 正在播放的聚焦卡上的「进入」按钮用它。身份稳定。
+     */
+    onEnterPlaybackView?: () => void;
     onRefreshUser: () => void;
     user: ProviderUser | null;
     playlists: ProviderCollection[];
