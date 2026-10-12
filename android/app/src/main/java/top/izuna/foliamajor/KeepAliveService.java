@@ -49,6 +49,7 @@ public class KeepAliveService extends Service {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     /** 由 MainActivity 注入（系统创建服务实例，无法走构造器传参）。 */
     private static WebView sharedWebView;
+    private static KeepAliveService instance;
     private WebView webView;
     private MediaSessionCompat session;
     private boolean isPlaying = false;
@@ -59,18 +60,34 @@ public class KeepAliveService extends Service {
     private String lastArtUri = "";
     private android.graphics.Bitmap lastBitmap;
     private String lastBitmapUrl = "";
+    private long lastDurationMs = 0L;
+    private String lastLyric = "";
 
     /** JS 桥：前端把当前歌曲与播放状态推给原生。 */
     private class Api {
         @JavascriptInterface
-        public void updateMedia(String title, String artist, String album, String artUri) {
+        public void updateMedia(String title, String artist, String album, String artUri, double durationMs) {
             mainHandler.post(() -> {
-                android.util.Log.i("FoliaMedia", "收到的歌曲信息: title=" + lastTitle + " artist=" + lastArtist);
+                android.util.Log.i("FoliaMedia", "收到的歌曲信息: title=" + lastTitle
+                        + " artist=" + lastArtist + " durationMs=" + durationMs);
                 lastTitle = title == null ? "" : title;
                 lastArtist = artist == null ? "" : artist;
                 lastAlbum = album == null ? "" : album;
                 lastArtUri = artUri == null ? "" : artUri;
+                // 进度条必需：没有时长，MediaStyle 画不出进度条也显示不了时间。
+                lastDurationMs = durationMs > 0 ? (long) durationMs : 0L;
                 publishSessionMetadata();
+            });
+        }
+
+        @JavascriptInterface
+        public void updateLyric(String text) {
+            android.util.Log.i("FoliaMedia", "收到歌词: len=" + (text == null ? -1 : text.length()) + " text=" + text);
+            mainHandler.post(() -> {
+                String lyric = text == null ? "" : text;
+                if (lyric.equals(lastLyric)) return;
+                lastLyric = lyric;
+                refreshNotification();
             });
         }
 
@@ -88,13 +105,47 @@ public class KeepAliveService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        instance = this;
         createChannel();
         setupMediaSession();
         startForegroundInternal();
-        if (sharedWebView != null) {
+        attachWebViewWithRetry();
+    }
+
+    /** Activity 就绪后主动注入（覆盖"服务先起、界面后来"的进程重启场景）。 */
+    public static void attachWebViewNow(WebView view) {
+        sharedWebView = view;
+        if (instance != null) instance.doAttach(view);
+    }
+
+    private void doAttach(WebView view) {
+        if (webView != null) return;
+        webView = view;
+        webView.addJavascriptInterface(new Api(), "FoliaMedia");
+        android.util.Log.i("FoliaMedia", "接口已注入 WebView（Activity 主动触发）");
+    }
+
+    /**
+     * WebView 可能在服务创建时还没就绪（Capacitor 异步初始化）。
+     * 注入必须发生在页面 loadUrl 之前才有效，所以这里以 1 秒间隔重试，
+     * 最多 60 次 —— 覆盖后端健康检查的整个启动窗口。
+     */
+    private void attachWebViewWithRetry() {
+        final int[] attempts = {0};
+        final Runnable[] retry = new Runnable[1];
+        retry[0] = () -> {
+            attempts[0] += 1;
+            if (webView != null) return;   // 已注入
+            if (sharedWebView == null) {
+                if (attempts[0] <= 60) mainHandler.postDelayed(retry[0], 1000);
+                else android.util.Log.e("FoliaMedia", "重试 60 秒仍未获得 WebView，放弃注入");
+                return;
+            }
             webView = sharedWebView;
             webView.addJavascriptInterface(new Api(), "FoliaMedia");
-        }
+            android.util.Log.i("FoliaMedia", "接口已注入 WebView（第 " + attempts[0] + " 次尝试）");
+        };
+        retry[0].run();
     }
 
     /** MainActivity 在启动服务前注入 WebView。 */
@@ -129,6 +180,9 @@ public class KeepAliveService extends Service {
             @Override
             public void onSeekTo(long pos) {
                 dispatch("seek", String.valueOf(pos));
+                // 立即把通知进度条跳到拖动位置（JS 的 timeupdate 随后接上真实进度）
+                publishPlaybackState(isPlaying ? PlaybackStateCompat.STATE_PLAYING
+                                              : PlaybackStateCompat.STATE_PAUSED, pos);
             }
         });
         session.setActive(true);
@@ -150,12 +204,18 @@ public class KeepAliveService extends Service {
     private Notification buildNotification() {
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle(lastTitle.isEmpty() ? "Folia" : lastTitle)
-                .setContentText(lastTitle.isEmpty() ? "音乐播放中" : lastArtist)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
-                if (lastBitmap != null) builder.setLargeIcon(lastBitmap);
+        if (lastBitmap != null) builder.setLargeIcon(lastBitmap);
+        if (lastLyric.isEmpty()) {
+            // 无歌词：标题=歌名，文字=歌手
+            builder.setContentTitle(lastTitle.isEmpty() ? "Folia" : lastTitle);
+            builder.setContentText(lastTitle.isEmpty() ? "音乐播放中" : lastArtist);
+        } else {
+            // 有歌词：标题=当前歌词行（逐句变化），文字行整个不要
+            builder.setContentTitle(lastLyric);
+        }
 
         if (hasSession && session != null) {
             builder.setStyle(new MediaStyle()
@@ -178,10 +238,14 @@ public class KeepAliveService extends Service {
 
     private void publishSessionMetadata() {
         if (!hasSession || session == null) return;
+        // [关键] Android 13+ 的媒体卡片标题/文字来自 **MediaSession 元数据**，
+        // 不是通知的 setContentTitle —— 所以歌词必须写进元数据的 TITLE 才会显示。
+        String displayTitle = lastLyric.isEmpty()
+                ? (lastTitle.isEmpty() ? "Folia" : lastTitle) : lastLyric;
+        String displaySub = lastLyric.isEmpty() ? lastArtist : lastTitle;   // 歌词时歌名占副位
         MediaMetadataCompat.Builder b = new MediaMetadataCompat.Builder()
-                .putString(MediaMetadataCompat.METADATA_KEY_TITLE,
-                        lastTitle.isEmpty() ? "Folia" : lastTitle);
-        if (!lastArtist.isEmpty()) b.putString(MediaMetadataCompat.METADATA_KEY_ARTIST, lastArtist);
+                .putString(MediaMetadataCompat.METADATA_KEY_TITLE, displayTitle);
+        if (!displaySub.isEmpty()) b.putString(MediaMetadataCompat.METADATA_KEY_ARTIST, displaySub);
         if (!lastAlbum.isEmpty()) b.putString(MediaMetadataCompat.METADATA_KEY_ALBUM, lastAlbum);
         if (!lastArtUri.isEmpty()) {
             b.putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, lastArtUri);
@@ -207,6 +271,7 @@ public class KeepAliveService extends Service {
             }
         }
         if (lastBitmap != null) b.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, lastBitmap);
+        if (lastDurationMs > 0) b.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, lastDurationMs);
         session.setMetadata(b.build());
         refreshNotification();
     }
@@ -269,6 +334,7 @@ public class KeepAliveService extends Service {
 
     @Override
     public void onDestroy() {
+        instance = null;
         if (session != null) {
             session.setActive(false);
             session.release();

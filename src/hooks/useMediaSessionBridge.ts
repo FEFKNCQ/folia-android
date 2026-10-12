@@ -60,12 +60,17 @@ export const useMediaSessionBridge = ({
             pause: () => { mediaSessionPauseRef.current?.(); },
             prev: () => { mediaSessionPrevRef.current?.(); },
             next: () => { void mediaSessionNextRef.current?.(); },
+            seek: (ms: number) => {
+                if (audioRef.current && Number.isFinite(ms)) {
+                    audioRef.current.currentTime = ms / 1000;
+                }
+            },
         };
     }, []);
 
     useEffect(() => {
         if (!isCapacitorAndroid()) return;
-        const nativeApi = (window as unknown as { FoliaMedia?: { updateMedia: (t: string, a: string, al: string, art: string) => void } | undefined }).FoliaMedia;
+        const nativeApi = (window as unknown as { FoliaMedia?: { updateMedia: (t: string, a: string, al: string, art: string, dur?: number) => void } | undefined }).FoliaMedia;
         if (!nativeApi || !currentSong) return;
         try {
             nativeApi.updateMedia(
@@ -73,6 +78,7 @@ export const useMediaSessionBridge = ({
                 getSongArtistLabel(currentSong),
                 getSongAlbumLabel(currentSong),
                 getSongCoverUrl(currentSong) ?? '',
+                currentSong.durationMs ?? 0,
             );
         } catch {
             /* 原生侧未就绪时忽略 */
@@ -89,6 +95,26 @@ export const useMediaSessionBridge = ({
             /* ignore */
         }
     }, [playerState, audioSrc]);
+
+    // [folia] 播放中每秒推送一次真实进度 —— 通知的进度条/时间随播放实时变动，
+    // 并顺带纠正拖动进度与系统外推的偏差。
+    useEffect(() => {
+        if (!isCapacitorAndroid()) return;
+        const audio = audioRef.current;
+        const nativeApi = (window as unknown as { FoliaMedia?: { updatePlayback: (playing: boolean, position: number) => void } | undefined }).FoliaMedia;
+        if (!audio || !nativeApi) return;
+        let lastPush = 0;
+        const onTimeUpdate = () => {
+            const now = Date.now();
+            if (now - lastPush < 1000) return;
+            lastPush = now;
+            try {
+                nativeApi.updatePlayback(!audio.paused, audio.currentTime * 1000);
+            } catch { /* ignore */ }
+        };
+        audio.addEventListener('timeupdate', onTimeUpdate);
+        return () => audio.removeEventListener('timeupdate', onTimeUpdate);
+    }, [audioSrc]);
 
     useEffect(() => {
         if (!('mediaSession' in navigator)) {

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ReplayGainInfo, ReplayGainMode } from '../../types';
+import { useAntiInterruptStore } from '../../stores/useAntiInterruptStore';
 
 // Shared control keeps local and Navidrome ReplayGain presentation and mode selection in sync.
 type ReplayGainValues = Pick<ReplayGainInfo, 'trackGain' | 'albumGain'>;
@@ -60,7 +61,26 @@ const ReplayGainControl: React.FC<ReplayGainControlProps> = ({
                     </button>
                 ))}
             </div>
+            <AntiInterruptToggle isDaylight={isDaylight} />
         </div>
+    );
+};
+
+const AntiInterruptToggle: React.FC<{ isDaylight: boolean }> = ({ isDaylight }) => {
+    const keep = useAntiInterruptStore((s) => s.keepPlayingWhenInterrupted);
+    const setKeep = useAntiInterruptStore((s) => s.setKeepPlayingWhenInterrupted);
+    const activeBackground = isDaylight ? 'bg-emerald-500/15 text-emerald-600' : 'bg-emerald-500/20 text-emerald-300';
+    const inactiveBackground = isDaylight ? 'bg-black/5 text-zinc-500 hover:bg-black/10' : 'bg-white/5 text-zinc-400 hover:bg-white/10';
+    return (
+        <button
+            onClick={() => setKeep(!keep)}
+            className={`w-full flex items-center justify-between text-[11px] py-1.5 px-2 rounded-md font-medium transition-all ${
+                keep ? activeBackground : inactiveBackground
+            }`}
+        >
+            <span>播放不被其他应用打断（游戏/视频）</span>
+            <span className="font-bold">{keep ? '已开启' : '已关闭'}</span>
+        </button>
     );
 };
 

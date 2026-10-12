@@ -40,9 +40,12 @@ export const restoreProviderAuth = async (): Promise<void> => {
   }
   console.log('[AuthRestore] 后端已就绪，开始恢复登录态');
 
-  const tasks: Array<{ providerId: 'bodian' | 'qq'; label: string }> = [
+  const tasks: Array<{ providerId: 'bodian' | 'qq' | 'kugou'; label: string }> = [
     { providerId: 'bodian', label: '波点' },
     { providerId: 'qq', label: 'QQ 音乐' },
+    // 酷狗：重启后头像不显示 —— 账号 store 里存的是**上次会话的头像 URL**，
+    // 酷狗头像链接带签名会过期。启动时重新拉取 user_detail 拿新鲜头像。
+    { providerId: 'kugou', label: '酷狗' },
   ];
 
   for (const { providerId, label } of tasks) {
@@ -65,7 +68,7 @@ export const restoreProviderAuth = async (): Promise<void> => {
         freshness: 'fresh',
         error: undefined,
       });
-      console.log(`[AuthRestore] ${label}: 已恢复登录账号`);
+      console.log(`[AuthRestore] ${label}: 已恢复登录账号 user=${JSON.stringify(user).slice(0, 300)}`);
     } catch (error) {
       console.log(`[AuthRestore] ${label} 恢复失败:`, error instanceof Error ? error.message : error);
     }

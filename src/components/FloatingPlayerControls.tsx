@@ -5,6 +5,7 @@ import { Play, Pause } from 'lucide-react';
 import { MotionValue } from 'framer-motion';
 import ProgressBar from './ProgressBar';
 import { PlayerState, LyricData, Theme } from '../types';
+import { isCapacitorAndroid } from '../platform/runtime';
 import LyricsTimelineModal from './modal/LyricsTimelineModal';
 import TrackTitleNavigator from './floating-player/TrackTitleNavigator';
 import PlayerControlSlotButton from './floating-player/PlayerControlSlotButton';

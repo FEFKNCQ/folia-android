@@ -38,6 +38,7 @@ export const installBootErrorOverlay = (): void => {
   };
 
   window.setTimeout(() => {
+
     // 闪屏元素还在 = 还没进入主界面。
     if (!document.getElementById('app-splash')) return;
     if (BOOT_ERRORS.length === 0) {

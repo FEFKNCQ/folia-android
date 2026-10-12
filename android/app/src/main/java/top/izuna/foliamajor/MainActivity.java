@@ -87,11 +87,20 @@ public class MainActivity extends BridgeActivity {
             Log.w(TAG, "WebView 尚未就绪，本地音乐导入桥未注册");
         }
 
+        // Android 13+：通知权限自动请求 —— 未授权时启动即弹系统授权框。
+        // （不授权的话，媒体通知/常驻通知都会被系统静默丢弃。）
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                        != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 2002);
+        }
+
         // 前台服务：常驻通知 + 保活 + 媒体会话，后台播放不中断。
         Bridge mediaBridge = getBridge();
         WebView mediaWebView = mediaBridge == null ? null : mediaBridge.getWebView();
         if (mediaWebView != null) {
             KeepAliveService.setSharedWebView(mediaWebView);
+            KeepAliveService.attachWebViewNow(mediaWebView);
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(new Intent(this, KeepAliveService.class));

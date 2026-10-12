@@ -60,6 +60,8 @@ import type { MediaId, OnlineProviderId, ProviderCollection } from './types/onli
 import { resolveSongCatalogRef } from './services/onlineMusic/catalogRefs';
 import { omni } from './services/onlineMusic/omni';
 import { consumeProgrammaticPause, playbackFade } from './services/playbackFade';
+import { useAntiInterruptStore } from './stores/useAntiInterruptStore';
+import { isCapacitorAndroid } from './platform/runtime';
 import { getSongArtistLabel, getSongCoverUrl } from './services/onlineMusic/songMetadata';
 import { isNavidromeEnabled } from './services/navidromeService';
 import { useAppNavigation } from './hooks/useAppNavigation';
@@ -2349,6 +2351,7 @@ export default function App() {
     // The two automix decks are identical and interchangeable. Every handler below ignores the
     // deck that is not currently active, so a track fading out in the background can never drive
     // the progress bar, the duration, the queue, or the player state.
+
     const renderAudioDeck = (deck: AutomixDeckId, register: (element: HTMLAudioElement | null) => void) => (
         <audio
             key={deck}
@@ -2416,6 +2419,16 @@ export default function App() {
                 // source re-pointed, and the deck left silent until play was pressed by hand.
                 // What happens to a failed source belongs to the error path below.
                 if (e.currentTarget.error) return;
+                // [folia] 「不被其他应用打断」：外部抢占音频焦点（游戏/视频）触发的暂停
+                // 不是程序化暂停（consumeProgrammaticPause 已在上面排除）——
+                // 开关开启时立即恢复播放，音乐不因其他应用而停。
+                if (
+                    useAntiInterruptStore.getState().keepPlayingWhenInterrupted
+                    && !e.currentTarget.ended
+                ) {
+                    void e.currentTarget.play().catch(() => {});
+                    return;
+                }
                 shouldAutoPlay.current = false;
                 if (!e.currentTarget.ended) {
                     setPlayerState(PlayerState.PAUSED);
