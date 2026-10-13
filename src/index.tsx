@@ -39,4 +39,16 @@ installAndroidMusicBridge();
 // 把当前视图打出来，方便远程定位"用户停在哪个界面"。
 installViewRouteLogger();
 
+
+    // [folia] /api/ 重定向：安卓上把桌面版 Serverless 端点的调用统一转到本地后端网关（3200）。
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        if (typeof input === 'string' && input.startsWith('/api/')) {
+            return nativeFetch(`http://127.0.0.1:3200${input}`, init);
+        }
+        if (input instanceof URL && input.pathname.startsWith('/api/')) {
+            return nativeFetch(`http://127.0.0.1:3200${input.pathname}${input.search}`, init);
+        }
+        return nativeFetch(input, init);
+    };
 void import('./bootstrap');

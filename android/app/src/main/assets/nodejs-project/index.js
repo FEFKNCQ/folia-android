@@ -485,3 +485,83 @@ startBodian();
 startLocalMusicServer();
 
 log('全部启动指令已下发');
+
+
+// ---------------------------------------------------------------- /api 网关 3200
+// 桌面版的 /api/* Serverless 端点（Vercel functions）在手机上没有承载——这里挂一个等价网关：
+//   /api/lyric-proxy?url=   代理 QQ/酷狗 CDN 请求（解决 WebView 的 CORS）
+//   /api/qq/*               转发到 3002 的 QQ 音乐 API（剥掉 /api/qq 前缀）
+//   /api/segment-lyrics 等  需要 AI key 的端点返回 501
+const httpsModule = require('node:https');
+const API_PORT = 3200;
+const isAllowedProxyHost = (h) => h === 'qq.com' || h.endsWith('.qq.com') ||
+    h === 'y.gtimg.cn' ||
+    h === 'kugou.com' || h.endsWith('.kugou.com') ||
+    h === 'kgimg.com' || h.endsWith('.kgimg.com');
+const API_CORS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET,OPTIONS,PATCH,DELETE,POST,PUT',
+    'Access-Control-Allow-Headers': 'X-CSRF-Token,X-Requested-With,Accept,Accept-Version,Content-Length,Content-MD5,Content-Type,Date,X-Api-Version,KG-Rec,KG-RC,KG-CLIENTTIMEMS,mid,x-router',
+};
+const apiProxy = (targetUrl, req, res) => {
+    const target = new URL(targetUrl);
+    const mod = target.protocol === 'https:' ? httpsModule : http;
+    const options = {
+        hostname: target.hostname,
+        port: target.port || (target.protocol === 'https:' ? 443 : 80),
+        path: target.pathname + target.search,
+        method: req.method,
+        headers: { ...req.headers, host: target.host },
+    };
+    const upstream = mod.request(options, (up) => {
+        res.writeHead(up.statusCode || 502, up.headers);
+        up.pipe(res);
+    });
+    upstream.on('error', (error) => {
+        log(`/api 网关上游错误: ${error.message}`);
+        res.writeHead(502);
+        res.end(JSON.stringify({ error: error.message }));
+    });
+    req.pipe(upstream);
+};
+
+http.createServer((req, res) => {
+    const applyCors = (extra) => {
+        Object.entries({ ...API_CORS, ...(extra || {}) }).forEach(([k, v]) => res.setHeader(k, v));
+    };
+    if (req.method === 'OPTIONS') {
+        applyCors();
+        res.writeHead(204);
+        return res.end();
+    }
+    try {
+        const url = new URL(req.url, `http://127.0.0.1:${API_PORT}`);
+        if (url.pathname === '/api/lyric-proxy') {
+            const target = url.searchParams.get('url');
+            applyCors();
+            if (!target) {
+                res.writeHead(400);
+                return res.end(JSON.stringify({ error: 'Missing url parameter' }));
+            }
+            let parsed;
+            try { parsed = new URL(target); } catch { res.writeHead(400); return res.end(JSON.stringify({ error: 'Bad url' })); }
+            if (!isAllowedProxyHost(parsed.hostname)) {
+                res.writeHead(400);
+                return res.end(JSON.stringify({ error: 'Host not allowed' }));
+            }
+            return apiProxy(target, req, res);
+        }
+        if (url.pathname.startsWith('/api/qq/')) {
+            const rest = url.pathname.slice('/api/qq'.length) || '/';
+            applyCors();
+            return apiProxy(`http://127.0.0.1:3002${rest}${url.search}`, req, res);
+        }
+        applyCors();
+        res.writeHead(501);
+        return res.end(JSON.stringify({ error: `Endpoint ${url.pathname} needs an AI key or is not available on this build` }));
+    } catch (error) {
+        applyCors();
+        res.writeHead(502);
+        return res.end(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }));
+    }
+}).listen(API_PORT, () => log(`/api 网关 -> ${API_PORT}`));

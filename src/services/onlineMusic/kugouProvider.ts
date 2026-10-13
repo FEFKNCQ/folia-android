@@ -1127,6 +1127,39 @@ export const kugouProvider: OnlineMusicProvider = {
                 }
             }
 
+            // [folia] VIP 限制兜底：请求试听片段（free_part=1），非会员可听试听而非"已下架"
+            if (sourceRef?.variant !== 'cloud') {
+                try {
+                    const trialResponse = await requestKugou('song_url', {
+                        hash,
+                        quality: qualityValue(qualities[qualities.length - 1]),
+                        album_id: albumId,
+                        album_audio_id: albumAudioId,
+                        free_part: 1,
+                    } as never);
+                    const trialData = dataOf(trialResponse);
+                    const trialPayload = Array.isArray(trialData) ? trialData[0] : trialData;
+                    const trialUrl = audioUrlOf(
+                        valueOf(trialPayload, 'play_url', 'playUrl', 'url')
+                        ?? valueOf(trialData?.[0], 'url', 'play_url')
+                    );
+                    if (trialUrl) {
+                        console.info('[KuGouProvider] playback:trial-resolved', { hash });
+                        return {
+                            url: trialUrl,
+                            fetchedAt: Date.now(),
+                            quality: 'standard',
+                        };
+                    }
+                    console.warn('[KuGouProvider] playback:no-trial-url', { hash });
+                } catch (error) {
+                    console.warn('[KuGouProvider] playback:trial-failed', {
+                        hash,
+                        error: error instanceof Error ? error.message : String(error),
+                    });
+                }
+            }
+
             console.warn('[KuGouProvider] playback:unavailable', { hash, requestedQuality: quality, attemptedQualities: qualities });
             return null;
         },
