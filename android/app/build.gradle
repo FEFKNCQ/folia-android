@@ -54,14 +54,6 @@ android {
         }
     }
 
-    // NDK 原生模块入口：src/main/cpp/CMakeLists.txt
-    //   -> libfolia_native.so（自检）+ libnode_runner.so（拉起 nodejs-mobile 的 libnode）
-    externalNativeBuild {
-        cmake {
-            path file('src/main/cpp/CMakeLists.txt')
-            version '3.22.1'
-        }
-    }
 
     // libnode.so 是 nodejs-mobile 的预编译库（60MB+）。默认的 strip 会去删它的符号，
     // 既慢又可能改坏，这里明确保留。
@@ -100,6 +92,7 @@ repositories {
 dependencies {
     // SAF 目录枚举（DocumentFile）——本地音乐导入用
     implementation 'androidx.documentfile:documentfile:1.0.1'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     // MediaSession + MediaStyle 通知（音乐播放器标准做法）
     implementation 'androidx.media:media:1.7.0'
     implementation fileTree(include: ['*.jar'], dir: 'libs')

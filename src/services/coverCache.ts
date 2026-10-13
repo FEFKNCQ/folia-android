@@ -41,36 +41,15 @@ const fetchCoverBlob = async (coverUrl: string): Promise<Blob> => {
     return await response.blob();
 };
 
-// 已解析出来的对象 URL 记忆表。
-//
-// getCachedCoverUrl 是异步的（读 IndexedDB → 可能写资产 → 建 object URL）。切换视图时
-// 封面组件会卸载重挂，新实例第一帧拿不到 URL，就会先空一下再出现 —— 表现就是
-// "画面变动时歌曲封面闪一闪"。
-// createSafeObjectUrl 只是 URL.createObjectURL，不会 revoke 任何东西，所以把结果留在
-// 模块级 Map 里复用是安全的：重挂时同步命中，不再有空白帧。
-const resolvedCoverUrlCache = new Map<string, string>();
-
-const resolveCoverObjectUrl = (cacheKey: string, blob: Blob): string | null => {
-    const memoized = resolvedCoverUrlCache.get(cacheKey);
-    if (memoized) return memoized;
-    const url = createSafeObjectUrl(blob);
-    if (url) resolvedCoverUrlCache.set(cacheKey, url);
-    return url;
-};
-
 export async function getCachedCoverUrl(cacheKey: string): Promise<string | null> {
-    // 命中记忆表就直接返回，省掉一整轮异步解析（这正是闪烁的来源）。
-    const memoized = resolvedCoverUrlCache.get(cacheKey);
-    if (memoized) return memoized;
-
     const stored = await getFromCache<unknown>(cacheKey);
     if (isBlob(stored)) {
         const descriptor = await writeCoverAsset(cacheKey, stored).catch(() => null);
         if (!descriptor) {
-            return resolveCoverObjectUrl(cacheKey, stored);
+            return createSafeObjectUrl(stored);
         }
         await saveToCache(cacheKey, descriptor);
-        return resolveCoverObjectUrl(cacheKey, stored);
+        return createSafeObjectUrl(stored);
     }
 
     if (stored !== null && !isStoredCoverDescriptor(stored)) {
@@ -84,7 +63,7 @@ export async function getCachedCoverUrl(cacheKey: string): Promise<string | null
         if (stored) await removeFromCache(cacheKey);
         return null;
     }
-    return resolveCoverObjectUrl(cacheKey, cachedCover);
+    return createSafeObjectUrl(cachedCover);
 }
 
 /**

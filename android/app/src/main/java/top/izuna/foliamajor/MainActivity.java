@@ -36,7 +36,6 @@ public class MainActivity extends BridgeActivity {
     private static final String TAG = "FoliaNative";
 
     /** 本地音乐导入桥：SAF 选目录 → 拷贝到 filesDir/local-music。 */
-    private LocalMusicBridge localMusicBridge;
 
     /**
      * 横屏整页缩放。1.0 = 原始大小，0.75 = 整个界面缩小到 75%。
@@ -67,6 +66,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        registerPlugin(FoliaNativePlugin.class);
         super.onCreate(savedInstanceState);
 
         // 横竖屏都支持：跟随重力感应自动切换（竖屏 + 左右两个横屏方向）。
@@ -80,12 +80,6 @@ public class MainActivity extends BridgeActivity {
         // 注意：WebView 不是字段，要从 Capacitor 的 Bridge 上取（与 configureWebView 一致）。
         Bridge musicBridge = getBridge();
         WebView musicWebView = musicBridge == null ? null : musicBridge.getWebView();
-        if (musicWebView != null) {
-            localMusicBridge = new LocalMusicBridge(this, musicWebView);
-            localMusicBridge.attach();
-        } else {
-            Log.w(TAG, "WebView 尚未就绪，本地音乐导入桥未注册");
-        }
 
         // Android 13+：通知权限自动请求 —— 未授权时启动即弹系统授权框。
         // （不授权的话，媒体通知/常驻通知都会被系统静默丢弃。）
@@ -108,7 +102,6 @@ public class MainActivity extends BridgeActivity {
             startService(new Intent(this, KeepAliveService.class));
         }
 
-        startEmbeddedBackends();
     }
 
     /**
@@ -116,28 +109,7 @@ public class MainActivity extends BridgeActivity {
      * 就这样直接跑在手机本地，App 通过 http://127.0.0.1:&lt;port&gt; 访问，
      * 不需要数据线、adb reverse 或者任何外部服务器。
      */
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
-        // 选目录走的是 SAF，先交给本地音乐桥；不是它的请求再交回父类。
-        if (localMusicBridge != null
-                && localMusicBridge.handleActivityResult(requestCode, resultCode, data)) {
-            return;
-        }
-        super.onActivityResult(requestCode, resultCode, data);
-    }
 
-    private void startEmbeddedBackends() {
-        Thread thread = new Thread(() -> {
-            try {
-                java.io.File projectDir = NodeProjectInstaller.ensureInstalled(getApplicationContext());
-                NodeRunner.start(projectDir.getAbsolutePath(), "index.js");
-            } catch (Throwable t) {
-                Log.e(TAG, "内置后端启动失败", t);
-            }
-        }, "folia-node-install");
-        thread.setDaemon(true);
-        thread.start();
-    }
 
     @Override
     public void onResume() {

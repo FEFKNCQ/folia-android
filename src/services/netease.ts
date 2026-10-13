@@ -1,6 +1,11 @@
 import { NeteaseUser, NeteasePlaylist, NoCopyrightRecommendation, SongPrivilege, SongResult } from "../types";
 import { readProviderSessionValue, removeProviderSessionValue, writeProviderSessionValue } from './onlineMusic/providerStorage';
 import type { PersonalFmRequestOptions } from '../types/onlineMusic';
+import {
+  isFoliaExtensionBridgeAvailable,
+  isFoliaExtensionBridgeConfigured,
+  requestFoliaExtension,
+} from './foliaExtensionBridge';
 
 type UnavailableSongReplacement = {
   replacementSong: SongResult;
@@ -23,7 +28,8 @@ const getElectronBridge = () => {
 const isElectronRuntime = () =>
   Boolean(getElectronBridge() && typeof getElectronBridge()?.getNeteasePort === 'function');
 
-const getConfiguredApiBase = () => {
+/** Read by the provider so the login diagnostics can name the transport actually in use. */
+export const getConfiguredApiBase = () => {
   const viteEnv = typeof import.meta !== 'undefined' ? (import.meta as any).env : undefined;
   if (viteEnv && typeof viteEnv.VITE_NETEASE_API_BASE === 'string' && viteEnv.VITE_NETEASE_API_BASE) {
     return viteEnv.VITE_NETEASE_API_BASE;
@@ -101,6 +107,33 @@ const getApiBase = async () => {
 };
 
 const fetchWithCreds = async (endpoint: string, options: RequestInit = {}) => {
+  const configuredApiBase = getConfiguredApiBase();
+  const extensionConfigured = isFoliaExtensionBridgeConfigured(configuredApiBase);
+
+  if (!isElectronRuntime() && (extensionConfigured || !configuredApiBase)) {
+    const bridgeAvailable = await isFoliaExtensionBridgeAvailable();
+    if (bridgeAvailable) {
+      const target = new URL(endpoint, 'https://folia.local');
+      const query = Object.fromEntries(target.searchParams.entries());
+      const response = await requestFoliaExtension<Record<string, any>>({
+        provider: 'netease',
+        operation: target.pathname,
+        path: target.pathname,
+        method: options.method || 'GET',
+        query,
+        body: options.body,
+        headers: Object.fromEntries(new Headers(options.headers || {}).entries()),
+      });
+      if (response?.__foliaBridgeError) {
+        throw new Error(response.message || response.__foliaBridgeError);
+      }
+      return response;
+    }
+    if (extensionConfigured) {
+      throw new Error(NETEASE_API_UNAVAILABLE);
+    }
+  }
+
   const base = await getApiBase();
   const url = `${base}${endpoint}`;
   // Ensure we send credentials to persist session (cookies)

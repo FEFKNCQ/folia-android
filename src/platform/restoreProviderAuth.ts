@@ -11,34 +11,12 @@ import { isCapacitorAndroid } from './runtime';
 // 表现为"重启后 QQ/波点显示未登录"。
 // 所以这里先轮询等后端有响应，再逐一恢复各音源的登录态。
 
-/** 轮询等待本地后端就绪（最长 60 秒）。 */
-const waitUntilBackendReady = async (): Promise<boolean> => {
-  for (let i = 0; i < 30; i++) {
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 3000);
-      const response = await fetch('http://127.0.0.1:3100/', { signal: controller.signal });
-      clearTimeout(timer);
-      if (response.status < 500) return true;
-    } catch {
-      /* 后端还没起，继续等 */
-    }
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-  }
-  return false;
-};
-
 export const restoreProviderAuth = async (): Promise<void> => {
   if (!isCapacitorAndroid()) return;
   console.log('[AuthRestore] 启动恢复流程开始');
 
-  // 等后端就绪（v26 的教训：太早跑 getLoginStatus 必然失败且无声无息）
-  const backendReady = await waitUntilBackendReady();
-  if (!backendReady) {
-    console.log('[AuthRestore] 等待 60 秒后端仍未就绪，放弃本次恢复');
-    return;
-  }
-  console.log('[AuthRestore] 后端已就绪，开始恢复登录态');
+  // [folia] 原生桥架构：没有本地 Node 后端，登录态经原生桥（CookieManager）直接读取，
+  // 无需等待——立即恢复。
 
   const tasks: Array<{ providerId: 'bodian' | 'qq' | 'kugou'; label: string }> = [
     { providerId: 'bodian', label: '波点' },

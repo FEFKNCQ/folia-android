@@ -1,7 +1,6 @@
 import { Buffer } from 'buffer';
 import { installGlobalVisualizerFrameRateLimiter } from './utils/frameRateLimiter';
-import { installCapacitorBodianBridge } from './platform/capacitorBodianBridge';
-import { installAndroidMusicBridge } from './platform/androidMusicBridge';
+import { installNativeAndroidBridge } from './services/nativeAndroidBridge';
 import { installViewRouteLogger } from './platform/viewRouteLogger';
 import { installBootErrorOverlay } from './platform/bootErrorOverlay';
 import { installConsoleLogCapture } from './utils/consoleLogBuffer';
@@ -31,10 +30,10 @@ installGlobalVisualizerFrameRateLimiter();
 // ---- 安卓（Capacitor）专属桥接：必须赶在 bootstrap 之前装好 ----
 // 波点音源：0.7.16 的 bodianTransport 只认 window.electron.bodianRequest，
 //           安卓上用独立全局 __foliaBodianRequest 提供同签名的实现。
-installCapacitorBodianBridge();
+void installNativeAndroidBridge();
 // 本地音乐导入：安卓 WebView 没有 File System Access API，
 //           这里用 SAF 桥把它模拟出来，否则"导入文件夹"点了没反应。
-installAndroidMusicBridge();
+
 
 // 把当前视图打出来，方便远程定位"用户停在哪个界面"。
 installViewRouteLogger();

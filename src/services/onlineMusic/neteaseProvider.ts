@@ -20,7 +20,10 @@ import { getNeteaseRemoteApiBase, isSongMarkedUnavailable, neteaseApi } from '..
 import { readProviderSessionValue, writeProviderSessionValue } from './providerStorage';
 import { collectLoginBackendDiagnostics } from './loginBackendDiagnostics';
 import { canRunLoginSelfCheck, runLoginSelfCheck } from './loginSelfCheck';
+import { getQrLoginTraceLines } from '../../nativeBridge/api/qrLoginTrace.js';
 import { formatDiagnosticClock } from '../../utils/qrLoginDiagnosticReport';
+import { proxyNativeRemoteAudioUrl } from '../nativeRemoteAudio';
+import { notePlaybackStreamInfo } from '../../utils/mediaDiagnostics';
 import { isConnectionResetMessage, isNetworkFailureMessage } from '../../../shared/networkErrorText.mjs';
 
 // src/services/onlineMusic/neteaseProvider.ts
@@ -35,6 +38,25 @@ const mapQuality = (quality: AudioQualityPreference): string => {
     if (quality === 'standard') return 'standard';
     if (quality === 'high') return 'exhigh';
     return quality;
+};
+
+/** 诊断只回报主机名：播放地址带着签名与 token，整条写进报告没必要。 */
+const mediaHostOf = (url: string): string => {
+    try {
+        return new URL(url).host || 'unknown';
+    } catch {
+        return 'unparseable';
+    }
+};
+
+/** 文件后缀（mp3 / flac / m4a）用来判断解码负担。 */
+const mediaSuffixOf = (url: string): string => {
+    try {
+        const match = new URL(url).pathname.match(/\.([a-z0-9]{2,5})$/i);
+        return match ? match[1].toLowerCase() : 'unknown';
+    } catch {
+        return 'unknown';
+    }
 };
 
 /**
@@ -328,8 +350,22 @@ export const neteaseProvider: OnlineMusicProvider = {
             const rawUrl = raw?.url;
             if (!rawUrl) return null;
             const trackGain = toFiniteNumber(raw?.gain);
+            const url = String(rawUrl).replace(/^http:/, 'https:');
+            // 用户反馈「歌卡」时，先看拿到的到底是什么流：码率、格式、是不是试听片段。
+            // 只记元数据与主机名，签名路径与 token 不进报告。
+            notePlaybackStreamInfo({
+                provider: 'netease',
+                requestedLevel: mapQuality(quality),
+                resolvedLevel: String(raw?.level ?? 'unknown'),
+                // 网易云的 br 是比特每秒（320000 = 320kbps），报告里统一按 kbps 记。
+                bitrateKbps: Number(raw?.br) ? Number(raw.br) / 1000 : null,
+                format: String(raw?.type ?? mediaSuffixOf(url)),
+                host: mediaHostOf(url),
+                sizeMb: Number(raw?.size) ? Number(raw.size) / 1048576 : null,
+                trial: Boolean(raw?.freeTrialInfo),
+            });
             return {
-                url: String(rawUrl).replace(/^http:/, 'https:'),
+                url: await proxyNativeRemoteAudioUrl(url),
                 fetchedAt: Date.now(),
                 quality,
                 ...(trackGain === undefined ? {} : { replayGain: { trackGain } }),
@@ -445,10 +481,15 @@ export const neteaseProvider: OnlineMusicProvider = {
             }
         },
         async getQrLoginDiagnostics() {
-            return collectLoginBackendDiagnostics('netease', [
+            const sessionLines = [
                 `session: login cookie=${yesNo(Boolean(readProviderSessionValue('netease', 'cookie', ['netease_cookie'])))}, anonymous cookie=${yesNo(Boolean(readProviderSessionValue('netease', 'anonymous_cookie', ['netease_anonymous_cookie'])))}`,
                 `last account check: ${lastLoginStatusCheck ?? 'none'}`,
-            ], getNeteaseRemoteApiBase());
+            ];
+            // 内置桥（安卓）在同一条链路里跑：要码 / 生成二维码 / 轮询分别走到哪一步、上游回了什么，
+            // 只有桥侧的分步追踪说得清（桌面版这条追踪在扩展侧，这里为空）。
+            const bridgeTrace = getQrLoginTraceLines('netease');
+            if (bridgeTrace.length) sessionLines.push(...bridgeTrace);
+            return collectLoginBackendDiagnostics('netease', sessionLines, getNeteaseRemoteApiBase());
         },
         canRunQrLoginSelfCheck: () => canRunLoginSelfCheck(getNeteaseRemoteApiBase()),
         runQrLoginSelfCheck: () => runLoginSelfCheck('netease', getNeteaseRemoteApiBase()),
