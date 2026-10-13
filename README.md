@@ -69,6 +69,11 @@ Node 运行时（nodejs-mobile，跑在手机本地）
 ## 🙏 致谢
 
 - 上游项目：[folia-major](https://github.com/chthollyphile/folia-major) —— 本仓库基于其 0.7.18 版源码移植，请同时支持原作者
+- **特别感谢：[RemnantCloudGodofWar/folia-android](https://github.com/RemnantCloudGodofWar/folia-android)** —— 本项目 v1.4.0 起的**原生桥架构**（WebView 请求经原生 OkHttp + CookieManager 处理、扫码登录原生 Cookie 化）**借鉴并融合了该项目的实现思路与代码**，正是这一架构让登录与本地音乐在安卓上稳定流畅，在此特别致谢
+- [nodejs-mobile](https://github.com/nodejs-mobile/nodejs-mobile)（历史版本的内置后端方案）
+- 各音源 API 项目：NeteaseCloudMusicApi / KuGouMusicApi / qq-music-api / bodian-music-api
+
+- 上游项目：[folia-major](https://github.com/chthollyphile/folia-major) —— 本仓库基于其 0.7.18 版源码移植，请同时支持原作者
 - [nodejs-mobile](https://github.com/nodejs-mobile/nodejs-mobile)
 - 各音源 API 项目：NeteaseCloudMusicApi / KuGouMusicApi / qq-music-api / bodian-music-api
 

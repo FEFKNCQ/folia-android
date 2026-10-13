@@ -80,6 +80,11 @@ public class MainActivity extends BridgeActivity {
         // 注意：WebView 不是字段，要从 Capacitor 的 Bridge 上取（与 configureWebView 一致）。
         Bridge musicBridge = getBridge();
         WebView musicWebView = musicBridge == null ? null : musicBridge.getWebView();
+        // [folia] 修复缩放拼贴时的黑闪：WebView 重绘瞬间会露出自身底色（默认白/黑），
+        // 固定为 App 的背景色后，露出的底色与界面一致，肉眼不可见。
+        if (musicWebView != null) {
+            musicWebView.setBackgroundColor(android.graphics.Color.parseColor("#09090b"));
+        }
 
         // Android 13+：通知权限自动请求 —— 未授权时启动即弹系统授权框。
         // （不授权的话，媒体通知/常驻通知都会被系统静默丢弃。）
