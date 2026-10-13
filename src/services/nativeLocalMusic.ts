@@ -2,7 +2,7 @@ import type { LocalSong } from '../types';
 import { saveLocalSongs } from './db';
 import { buildImportedMetadataSnapshot } from '../utils/localSongMetadata';
 import { parseEmbeddedMetadataAsync } from '../utils/localMetadataWorkerClient';
-import { noteLibraryStep } from '../nativeBridge/api/libraryTrace.js';
+import { noteLibraryStep } from '../audioNative/api/libraryTrace.js';
 
 // src/services/nativeLocalMusic.ts
 /**

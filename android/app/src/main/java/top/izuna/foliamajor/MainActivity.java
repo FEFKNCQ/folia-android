@@ -66,7 +66,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        registerPlugin(FoliaNativePlugin.class);
+        registerPlugin(FoliaCorePlugin.class);
         super.onCreate(savedInstanceState);
 
         // 横竖屏都支持：跟随重力感应自动切换（竖屏 + 左右两个横屏方向）。

@@ -1,5 +1,5 @@
-import { getLibraryTraceLines } from '../nativeBridge/api/libraryTrace.js';
-import { getQrLoginTraceLines } from '../nativeBridge/api/qrLoginTrace.js';
+import { getLibraryTraceLines } from '../audioNative/api/libraryTrace.js';
+import { getQrLoginTraceLines } from '../audioNative/api/qrLoginTrace.js';
 import { useAudioSettingsStore } from '../stores/useAudioSettingsStore';
 import { usePlaybackStore } from '../stores/usePlaybackStore';
 import { readCrashDiagnostics } from './crashDiagnostics';

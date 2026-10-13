@@ -1,4 +1,4 @@
-import { noteLibraryStep } from '../nativeBridge/api/libraryTrace.js';
+import { noteLibraryStep } from '../audioNative/api/libraryTrace.js';
 
 // src/utils/mediaDiagnostics.ts
 // 播放链路的现场记录。除了「有没有加载成功」，这里还统计缓冲中断、网络停滞、主线程卡顿和

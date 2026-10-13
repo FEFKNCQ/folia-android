@@ -8,7 +8,7 @@ public class PlaybackActionReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         if (intent != null && intent.getAction() != null) {
-            FoliaNativePlugin.emitMediaAction(intent.getAction());
+            FoliaCorePlugin.emitMediaAction(intent.getAction());
         }
     }
 }

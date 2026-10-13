@@ -98,7 +98,7 @@ public class FoliaPlaybackService extends Service {
         }
         if (!currentArtworkUrl.equals(lastRequestedCoverUrl)) {
             lastRequestedCoverUrl = currentArtworkUrl;
-            FoliaNativePlugin.notePlaybackArtwork(
+            FoliaCorePlugin.notePlaybackArtwork(
                 currentArtworkUrl,
                 currentArtworkUrl.isEmpty() ? "none" : "queued",
                 ""
@@ -106,7 +106,7 @@ public class FoliaPlaybackService extends Service {
         }
 
         mediaSession.setMetadata(buildMetadata(title, artist, album, duration, retainedArtwork, currentArtworkUrl));
-        FoliaNativePlugin.notePlaybackArtworkApplied(retainedArtwork != null);
+        FoliaCorePlugin.notePlaybackArtworkApplied(retainedArtwork != null);
         mediaSession.setPlaybackState(new PlaybackState.Builder()
             .setActions(
                 PlaybackState.ACTION_PLAY
@@ -125,7 +125,7 @@ public class FoliaPlaybackService extends Service {
         loadArtwork(currentArtworkUrl, bitmap -> {
             if (!currentArtworkUrl.equals(coverUrl == null ? "" : coverUrl.trim())) return;
             mediaSession.setMetadata(buildMetadata(title, artist, album, duration, bitmap, currentArtworkUrl));
-            FoliaNativePlugin.notePlaybackArtworkApplied(bitmap != null);
+            FoliaCorePlugin.notePlaybackArtworkApplied(bitmap != null);
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
                 manager.notify(NOTIFICATION_ID, buildNotification(title, artist, playing, bitmap));
@@ -217,7 +217,7 @@ public class FoliaPlaybackService extends Service {
                 if (value.equals(currentArtworkUrl)) {
                     appliedArtworkUrl = value;
                     appliedArtworkBitmap = cached;
-                    FoliaNativePlugin.notePlaybackArtwork(
+                    FoliaCorePlugin.notePlaybackArtwork(
                         value,
                         "loaded",
                         "cached " + cached.getWidth() + "x" + cached.getHeight()
@@ -228,7 +228,7 @@ public class FoliaPlaybackService extends Service {
             return;
         }
         if (!(value.startsWith("http://") || value.startsWith("https://"))) {
-            FoliaNativePlugin.notePlaybackArtwork(value, "error", "unsupported-cover-url");
+            FoliaCorePlugin.notePlaybackArtwork(value, "error", "unsupported-cover-url");
             return;
         }
         artworkExecutor.execute(() -> {
@@ -257,7 +257,7 @@ public class FoliaPlaybackService extends Service {
                     if (value.equals(currentArtworkUrl)) {
                         appliedArtworkUrl = value;
                         appliedArtworkBitmap = resolved;
-                        FoliaNativePlugin.notePlaybackArtwork(
+                        FoliaCorePlugin.notePlaybackArtwork(
                             value,
                             "loaded",
                             resolved.getWidth() + "x" + resolved.getHeight()
@@ -266,7 +266,7 @@ public class FoliaPlaybackService extends Service {
                     callback.onLoaded(resolved);
                 });
             } else {
-                FoliaNativePlugin.notePlaybackArtwork(value, "error", failure.isEmpty() ? "unknown" : failure);
+                FoliaCorePlugin.notePlaybackArtwork(value, "error", failure.isEmpty() ? "unknown" : failure);
             }
         });
     }
@@ -318,7 +318,7 @@ public class FoliaPlaybackService extends Service {
     }
 
     private void emit(String action) {
-        FoliaNativePlugin.emitMediaAction(action);
+        FoliaCorePlugin.emitMediaAction(action);
     }
 
     @Override

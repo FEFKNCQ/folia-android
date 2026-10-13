@@ -1,3 +1,13 @@
+/**
+ * ═══════════════════════════════════════════════════════════
+ *  Folia 安卓版 · 音源适配核心（前端层）
+ *  各音源（网易云/酷狗/QQ/波点）的请求协议在此统一封装，
+ *  经原生核心插件完成本机网络与 Cookie 操作。
+ *
+ *  项目：Folia for Android（Timingyyds/folia-android）
+ *  作者：不出名的TiMing（Timingyyds）
+ * ═══════════════════════════════════════════════════════════
+ */
 import { eapiRequest } from './eapi.js';
 import { weapiRequest } from './weapi.js';
 import { noteLibraryStep, describePayload } from './libraryTrace.js';

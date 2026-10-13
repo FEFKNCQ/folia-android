@@ -25,7 +25,7 @@ import {
     normalizeSongTitleForLyricSearch,
 } from '../../utils/lyrics/searchQuery';
 import { removeProviderSessionValue, readProviderSessionValue } from './providerStorage';
-import { noteLibraryStep } from '../../nativeBridge/api/libraryTrace.js';
+import { noteLibraryStep } from '../../audioNative/api/libraryTrace.js';
 import {
     getKugouTransportAvailability,
     hasKugouAuthenticatedSearchSession,

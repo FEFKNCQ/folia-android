@@ -352,7 +352,7 @@ const persistElectronAccountHint = (operation: KugouOperation, response: any): v
 /**
  * Reads the account id out of a bridge response.
  *
- * The built-in bridge answers flat (`userId`, see `nativeBridge/api/kugou.js`), the hosted
+ * The built-in bridge answers flat (`userId`, see `audioNative/api/kugou.js`), the hosted
  * KuGouMusicApi nests the same value as `data.userid`, and `user_detail` wraps a profile under
  * `data.user_info`. Only those shapes are inspected, so a search payload can never leak a song id
  * into the session.

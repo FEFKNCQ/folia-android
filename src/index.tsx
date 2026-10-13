@@ -1,23 +1,29 @@
 import { Buffer } from 'buffer';
 import { installGlobalVisualizerFrameRateLimiter } from './utils/frameRateLimiter';
-import { installNativeAndroidBridge } from './services/nativeAndroidBridge';
-import { installViewRouteLogger } from './platform/viewRouteLogger';
-import { installBootErrorOverlay } from './platform/bootErrorOverlay';
 import { installConsoleLogCapture } from './utils/consoleLogBuffer';
+import { installCrashDiagnostics } from './utils/crashDiagnostics';
+import { installChunkLoadRecovery } from './utils/chunkLoadRecovery';
 import { installDebugModule } from './services/debug/debugModule';
 import { installMemorySampleFeed } from './services/debug/memorySamples';
+import { installFrameTimingDiagnostics } from './utils/frameTimingDiagnostics';
+import { installAudioNativeCore } from './services/audioNativeInstaller';
+import { installAndroidPhoneFitPreference } from './services/androidPhoneLayout';
+import { installKeepScreenOnPreference } from './services/androidKeepScreenOn';
 // import { installCoverSizeAudit } from './services/debug/coverSizeSamples';
 // @ts-ignore
 globalThis.Buffer = Buffer;
-// 启动诊断必须最先安装：越早，捕获到的启动期错误越全。
-installBootErrorOverlay();
 // First, so the debug overlay's console tab has the startup lines too - they are where a failure
 // to reach a library or restore a session shows up.
 installConsoleLogCapture();
+installCrashDiagnostics();
+// 覆盖安装时旧 index.html 可能引用已被替换掉的 chunk：先装恢复器，再让 React 启动。
+installChunkLoadRecovery();
 // Right after it, so the startup lines reach the runtime log file too and not only the in-memory
 // buffer. Both no-op off Electron. See services/debug/debugModule.ts.
 installDebugModule();
 installMemorySampleFeed();
+// 帧耗时 / 长任务采样，供设置里的「复制诊断数据」判断卡顿是渲染开销还是设备性能。
+installFrameTimingDiagnostics();
 // Cover size audit, left wired but switched off: it answered whether the provider CDNs honour the
 // size in a cover URL - they do - and that is not a question worth re-asking every session. The
 // collector and its panel are still in the tree, and `?probe=coverSizeAudit` still reaches them.
@@ -26,28 +32,9 @@ installMemorySampleFeed();
 // observer or the rows it retains.
 // if (import.meta.env.DEV) installCoverSizeAudit();
 installGlobalVisualizerFrameRateLimiter();
+installAndroidPhoneFitPreference();
+// 屏幕常亮：启动时套用保存的开关状态（安卓走原生窗口标志）。
+installKeepScreenOnPreference();
+void installAudioNativeCore();
 
-// ---- 安卓（Capacitor）专属桥接：必须赶在 bootstrap 之前装好 ----
-// 波点音源：0.7.16 的 bodianTransport 只认 window.electron.bodianRequest，
-//           安卓上用独立全局 __foliaBodianRequest 提供同签名的实现。
-void installNativeAndroidBridge();
-// 本地音乐导入：安卓 WebView 没有 File System Access API，
-//           这里用 SAF 桥把它模拟出来，否则"导入文件夹"点了没反应。
-
-
-// 把当前视图打出来，方便远程定位"用户停在哪个界面"。
-installViewRouteLogger();
-
-
-    // [folia] /api/ 重定向：安卓上把桌面版 Serverless 端点的调用统一转到本地后端网关（3200）。
-    const nativeFetch = window.fetch.bind(window);
-    window.fetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-        if (typeof input === 'string' && input.startsWith('/api/')) {
-            return nativeFetch(`http://127.0.0.1:3200${input}`, init);
-        }
-        if (input instanceof URL && input.pathname.startsWith('/api/')) {
-            return nativeFetch(`http://127.0.0.1:3200${input.pathname}${input.search}`, init);
-        }
-        return nativeFetch(input, init);
-    };
 void import('./bootstrap');

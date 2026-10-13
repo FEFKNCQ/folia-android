@@ -20,7 +20,7 @@ import { getNeteaseRemoteApiBase, isSongMarkedUnavailable, neteaseApi } from '..
 import { readProviderSessionValue, writeProviderSessionValue } from './providerStorage';
 import { collectLoginBackendDiagnostics } from './loginBackendDiagnostics';
 import { canRunLoginSelfCheck, runLoginSelfCheck } from './loginSelfCheck';
-import { getQrLoginTraceLines } from '../../nativeBridge/api/qrLoginTrace.js';
+import { getQrLoginTraceLines } from '../../audioNative/api/qrLoginTrace.js';
 import { formatDiagnosticClock } from '../../utils/qrLoginDiagnosticReport';
 import { proxyNativeRemoteAudioUrl } from '../nativeRemoteAudio';
 import { notePlaybackStreamInfo } from '../../utils/mediaDiagnostics';

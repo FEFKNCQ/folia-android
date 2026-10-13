@@ -1,3 +1,13 @@
+/**
+ * ═══════════════════════════════════════════════════════════
+ *  Folia 安卓版 · 音源原生核心安装器
+ *  启动时把 WebView 的网络/存储请求接到原生层（OkHttp + CookieManager），
+ *  让扫码登录与音源请求在本机原生完成。
+ *
+ *  项目：Folia for Android（Timingyyds/folia-android）
+ *  作者：不出名的TiMing（Timingyyds）
+ * ═══════════════════════════════════════════════════════════
+ */
 // Android-only shim that makes the bundled Folia Bridge API modules believe they
 // are running inside a browser extension while all privileged work is delegated
 // to the native Capacitor plugin.
@@ -380,7 +390,7 @@ const installMessageBridge = () => {
   });
 };
 
-export const installNativeAndroidBridge = async (): Promise<void> => {
+export const installAudioNativeCore = async (): Promise<void> => {
   if (typeof window === 'undefined') return;
   const capacitor = (window as any).Capacitor;
   if (!capacitor?.isNativePlatform?.() && capacitor?.getPlatform?.() !== 'android') return;
@@ -398,7 +408,7 @@ export const installNativeAndroidBridge = async (): Promise<void> => {
   await installNativePlaybackBridge(plugin as any);
 
   // @ts-ignore The bundled extension module is plain JavaScript.
-  const module = await import('../nativeBridge/api/folia.js');
+  const module = await import('../audioNative/api/folia.js');
   apiHandler = module.handleFoliaApiRequest as ApiHandler;
   postToPage({
     type: 'FOLIA_BRIDGE_READY',

@@ -1,3 +1,13 @@
+/*
+ * ═══════════════════════════════════════════════════════════
+ *  Folia 安卓版 · 原生核心插件
+ *  承接 WebView 的网络请求、Cookie 管理、返回键等原生能力，
+ *  供前端音源适配层调用。
+ *
+ *  项目：Folia for Android（Timingyyds/folia-android）
+ *  作者：不出名的TiMing（Timingyyds）
+ * ═══════════════════════════════════════════════════════════
+ */
 package top.izuna.foliamajor;
 
 import android.Manifest;
@@ -70,8 +80,8 @@ import okhttp3.ResponseBody;
         )
     }
 )
-public class FoliaNativePlugin extends Plugin {
-    private static volatile FoliaNativePlugin instance;
+public class FoliaCorePlugin extends Plugin {
+    private static volatile FoliaCorePlugin instance;
     private static volatile String playbackArtworkCover = "";
     private static volatile String playbackArtworkStatus = "none";
     private static volatile String playbackArtworkDetail = "";
@@ -97,7 +107,7 @@ public class FoliaNativePlugin extends Plugin {
     }
 
     static void emitMediaAction(String action) {
-        FoliaNativePlugin plugin = instance;
+        FoliaCorePlugin plugin = instance;
         if (plugin == null) return;
         JSObject payload = new JSObject();
         payload.put("action", action);
@@ -106,7 +116,7 @@ public class FoliaNativePlugin extends Plugin {
 
     /** True when the WebView handled Back; false lets the activity fall back to normal exit. */
     static boolean emitBackPressed() {
-        FoliaNativePlugin plugin = instance;
+        FoliaCorePlugin plugin = instance;
         if (plugin == null || !plugin.hasListeners("backButton")) return false;
         Activity activity = plugin.getActivity();
         if (activity == null) return false;

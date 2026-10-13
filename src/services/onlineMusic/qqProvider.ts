@@ -20,7 +20,7 @@ import { clearQqSession, getQqRemoteApiBase, getQqTransportAvailability, hasQqSe
 import { collectLoginBackendDiagnostics } from './loginBackendDiagnostics';
 import { canRunLoginSelfCheck, runLoginSelfCheck } from './loginSelfCheck';
 import { formatDiagnosticClock } from '../../utils/qrLoginDiagnosticReport';
-import { getQrLoginTraceLines } from '../../nativeBridge/api/qrLoginTrace.js';
+import { getQrLoginTraceLines } from '../../audioNative/api/qrLoginTrace.js';
 
 // src/services/onlineMusic/qqProvider.ts
 
