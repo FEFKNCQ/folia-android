@@ -214,6 +214,7 @@
     "@capacitor/core": "8.4.2",
     "@capacitor/splash-screen": "8.0.2",
     "@capacitor/status-bar": "8.0.3",
+    "@fontsource/noto-sans-sc": "^5.3.1",
     "@google/genai": "^2.24.0",
     "@neteasecloudmusicapienhanced/api": "^4.41.1",
     "@xhayper/discord-rpc": "^1.5.1",

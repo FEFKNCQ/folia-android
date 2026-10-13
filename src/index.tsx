@@ -9,6 +9,8 @@ import { installFrameTimingDiagnostics } from './utils/frameTimingDiagnostics';
 import { installAudioNativeCore } from './services/audioNativeInstaller';
 import { installAndroidPhoneFitPreference } from './services/androidPhoneLayout';
 import { installKeepScreenOnPreference } from './services/androidKeepScreenOn';
+import '@fontsource/noto-sans-sc/400.css';
+import '@fontsource/noto-sans-sc/700.css';
 // import { installCoverSizeAudit } from './services/debug/coverSizeSamples';
 // @ts-ignore
 globalThis.Buffer = Buffer;

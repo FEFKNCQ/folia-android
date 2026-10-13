@@ -1,3 +1,7 @@
+/* ═══ Folia 安卓版 · 内置中文字体（离线统一渲染）═══
+   项目：Folia for Android（Timingyyds/folia-android）
+   作者：不出名的TiMing（Timingyyds）
+   ═══════════════════════════════════════════ */
 @import "tailwindcss";
 
 /* Folium mod stylesheets (registries.styles) live in this layer. Declaring it
@@ -305,4 +309,9 @@ html[data-click-through='active'] body .click-through-interactive * {
     kbd {
         display: none !important;
     }
+}
+
+/* 内置中文字体：全局优先使用，保证离线环境下中文渲染统一美观 */
+body, button, input, select, textarea {
+  font-family: "Noto Sans SC", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
 }
