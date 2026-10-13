@@ -48,6 +48,8 @@ type PosterWallProps = {
 const CELL_SIZE = 128;
 const GAP = 8;
 const OVERSCAN = 500;
+// 性能优先时的裁剪余量：默认那 500px 是为了让快速拖动不露白，但它同时也是 world 层被重画的面积。
+const PERFORMANCE_OVERSCAN = 140;
 // How much of the flight path may stay rendered while the camera travels, in viewports.
 const MAX_RESERVED_VIEWPORTS = 3;
 // Metro tile landing: the wave starts at the top-left of the viewport and runs down the diagonal.
@@ -100,8 +102,15 @@ export default function PosterWall({
     // 从资料库墙翻牌交接进来（或淡入交叉）：入场由交接代替，不跑抬起落下的波次。
     const entranceSuppressed = useWallHandoffStore(state => resolveWallHandoffRole(state.session, 'lattice') === 'in');
     const autoFocusOnSongChange = useLatticeSettingsStore(state => state.autoFocusOnSongChange);
+    const performanceMode = useLatticeSettingsStore(state => state.latticePerformanceMode);
     const devicePixelRatio = useDevicePixelRatio();
-    const pixelScale = cameraScale * devicePixelRatio;
+    // 性能优先：封面按世界尺寸取档（而不是设备像素），高 DPR 屏上不再为每张卡解一张大一档的图。
+    const pixelScale = performanceMode
+        ? Math.min(cameraScale * devicePixelRatio, 1)
+        : cameraScale * devicePixelRatio;
+    // 相机行程（见 clampFiniteCamera）与裁剪余量都跟着收窄：性能优先时不再无限铺下去。
+    const overscan = performanceMode ? PERFORMANCE_OVERSCAN : OVERSCAN;
+    const reservedViewports = performanceMode ? 1 : MAX_RESERVED_VIEWPORTS;
 
     const geometry = useMemo(() => getLatticeGeometry(tiles.length, METRICS), [tiles.length]);
     const [activePoster, setActivePoster] = useLatticePosterSelection(tiles, geometry, METRICS);
@@ -119,7 +128,21 @@ export default function PosterWall({
     const applyCamera = useCallback((next: LatticeCamera, updateBounds = false) => {
         cameraRef.current = next;
         if (worldRef.current) {
-            worldRef.current.style.transform = `translate3d(${next.x}px, ${next.y}px, 0) scale(${next.scale})`;
+            /*
+             * 相机用**二维** transform，不要用 translate3d。
+             *
+             * translate3d 会把整面墙提成常驻合成层，而 world 的实际 bounds 是
+             * 12212x11580（受限的另一头）—— 任何一张磁贴在这个层里 repaint，
+             * 都要按这个尺寸重新栅格化一遍 tile。桌面 GPU 撑得住，
+             * Android WebView 的合成器面对超限层会反复丢弃重建，用户看到的就是
+             * 「选歌时整屏闪烁」。实测 Trajectory：world 层整屏级 paint 6~10 次/次选歌，
+             * 改成二维 transform 之后降到 0 —— 层不再存在，重绘被 `.lattice-field`
+             * 的 paint containment 裁在保证可见的那一小块里。
+             *
+             * 平移本身不受影响：2D transform 同样可以被合成器处理，
+             * pan 期间 Chromium 会临时提层，pan 结束自动降级。
+             */
+            worldRef.current.style.transform = `translate(${next.x}px, ${next.y}px) scale(${next.scale})`;
         }
         publishCurrentPosterVisibility(next);
         if (!updateBounds || frameRef.current !== null) return;
@@ -167,9 +190,38 @@ export default function PosterWall({
             const mergedArea = (merged.right - merged.left) * (merged.bottom - merged.top);
             const destinationArea = (destination.right - destination.left)
                 * (destination.bottom - destination.top);
-            return mergedArea > destinationArea * MAX_RESERVED_VIEWPORTS ? destination : merged;
+            return mergedArea > destinationArea * reservedViewports ? destination : merged;
         });
-    }, []);
+    }, [reservedViewports]);
+
+    /**
+     * 性能优先：把相机拴在「一个格子 + 一屏余量」的框里，拖到底就停住，不再无限铺下去
+     * （world 层的 bounds 因此始终在一屏上下，而不是用户拖到哪就长到哪）。
+     * 只用在拖动 / 滚轮 / 惯性上：键盘与播放跟随（panTo）要能把任意一张卡带到眼前；它们真把相机带出框外时，
+     * 框会把当前视口并进去一起放宽，所以下一次拖动不会被拽回来。
+     */
+    const clampFiniteCamera = useCallback((camera: LatticeCamera): LatticeCamera => {
+        if (!performanceMode) return camera;
+        const viewport = viewportRef.current;
+        const marginX = viewport.width / camera.scale;
+        const marginY = viewport.height / camera.scale;
+        const visible = getWorldBounds(camera, viewport);
+        const range = {
+            left: Math.min(-marginX, visible.left - marginX),
+            right: Math.max(geometry.cellWidth + marginX, visible.right + marginX),
+            top: Math.min(-marginY, visible.top - marginY),
+            bottom: Math.max(geometry.cellHeight + marginY, visible.bottom + marginY),
+        };
+        const minX = viewport.width - range.right * camera.scale;
+        const maxX = -range.left * camera.scale;
+        const minY = viewport.height - range.bottom * camera.scale;
+        const maxY = -range.top * camera.scale;
+        return {
+            ...camera,
+            x: minX > maxX ? camera.x : Math.min(maxX, Math.max(minX, camera.x)),
+            y: minY > maxY ? camera.y : Math.min(maxY, Math.max(minY, camera.y)),
+        };
+    }, [geometry.cellHeight, geometry.cellWidth, performanceMode]);
 
     const { panTo, stopPan, animationRef } = useWallCameraPan({ cameraRef, viewportRef, reducedMotion, applyCamera, reserveBounds });
 
@@ -211,12 +263,18 @@ export default function PosterWall({
 
     const instances = useMemo(() => {
         if (!measured) return [];
-        const visible = layoutLattice(geometry, tiles.length, bounds, OVERSCAN, METRICS);
+        const visible = layoutLattice(geometry, tiles.length, bounds, overscan, METRICS);
         if (!activePoster || visible.some(instance => instance.instanceId === activePoster.instance.instanceId)) {
             return visible;
         }
         return [...visible, activePoster.instance];
-    }, [activePoster, bounds, geometry, measured, tiles.length]);
+    }, [activePoster, bounds, geometry, measured, overscan, tiles.length]);
+
+    // Only changes when the mounted instance set changes, not on every camera frame.
+    const renderedInstanceIds = useMemo(
+        () => new Set(instances.map(instance => instance.instanceId)),
+        [instances],
+    );
 
     // World point the viewport is centred on; both the keyboard seed and playback follow need it.
     const getViewportCenter = useCallback(() => {
@@ -234,7 +292,9 @@ export default function PosterWall({
         stopPan,
         containerRef,
         reducedMotion,
-        overscan: OVERSCAN,
+        overscan,
+        // 性能优先时的相机行程上限（拖动 / 滚轮 / 惯性）；键盘与播放跟随不走这条路。
+        clampCamera: clampFiniteCamera,
         bounds,
         cameraRef,
         getWorldBounds,
@@ -300,6 +360,8 @@ export default function PosterWall({
         currentSong,
         ready: measured,
         tiles,
+        activePoster,
+        renderedInstanceIds,
         geometry,
         metrics: METRICS,
         getViewportCenter,

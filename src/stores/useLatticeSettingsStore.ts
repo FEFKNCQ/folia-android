@@ -5,6 +5,7 @@ import { getStoredBoolean, getStoredString, setStoredBoolean } from './storagePr
 // Persistent queue-collage preferences. Deliberately separate from useLatticeControlsStore: that
 // store only publishes runtime actions from the currently mounted wall.
 
+const LATTICE_PERFORMANCE_MODE_KEY = 'lattice_performance_mode';
 const LATTICE_VIGNETTE_KEY = 'lattice_vignette';
 const LATTICE_AUTO_FOCUS_ON_SONG_CHANGE_KEY = 'lattice_auto_focus_on_song_change';
 const LATTICE_LIGHTS_ON_KEY = 'lattice_lights_on';
@@ -26,6 +27,12 @@ const getStoredPosterTintIntensity = () => {
 };
 
 export type LatticeSettingsState = {
+    /**
+     * 性能优先（默认开）：只保留翻牌 / 入场波次 / 缝的展开收起，其余装饰效果全部让路 ——
+     * 全屏噪点混合、海报的多层叠层与阴影过渡、悬停滤镜、暗角与光晕一并关掉，封面降一档分辨率，
+     * 拼贴的裁剪余量与相机行程都收窄。见 components/wall/wall.css 的 .is-performance 一段。
+     */
+    latticePerformanceMode: boolean;
     latticeVignette: boolean;
     autoFocusOnSongChange: boolean;
     latticeLightsOn: boolean;
@@ -33,6 +40,7 @@ export type LatticeSettingsState = {
     latticePosterTintUseCustomColor: boolean;
     latticePosterTintColor: string;
     latticePosterTintIntensity: number;
+    handleToggleLatticePerformanceMode: (enabled: boolean) => void;
     /**
      * 墙面工具面板（bravais 与 Lattice 共用）上方的队列浮岛上次是否展开着：下次打开面板时照旧。
      * 这是面板的开合状态，不是设置——不进外观导入导出，也不注册命令面板（完整的队列编辑已经有 Ctrl+P 的队列命令）。
@@ -50,6 +58,7 @@ export type LatticeSettingsState = {
 };
 
 export const useLatticeSettingsStore = create<LatticeSettingsState>(set => ({
+    latticePerformanceMode: getStoredBoolean(LATTICE_PERFORMANCE_MODE_KEY, true),
     latticeVignette: getStoredBoolean(LATTICE_VIGNETTE_KEY, true),
     autoFocusOnSongChange: getStoredBoolean(LATTICE_AUTO_FOCUS_ON_SONG_CHANGE_KEY, true),
     latticeLightsOn: getStoredBoolean(LATTICE_LIGHTS_ON_KEY, true),
@@ -57,6 +66,10 @@ export const useLatticeSettingsStore = create<LatticeSettingsState>(set => ({
     latticePosterTintUseCustomColor: getStoredBoolean(LATTICE_POSTER_TINT_USE_CUSTOM_COLOR_KEY, false),
     latticePosterTintColor: normalizePosterTintColor(getStoredString(LATTICE_POSTER_TINT_COLOR_KEY, DEFAULT_POSTER_TINT_COLOR)),
     latticePosterTintIntensity: getStoredPosterTintIntensity(),
+    handleToggleLatticePerformanceMode: (enabled) => {
+        set({ latticePerformanceMode: enabled });
+        setStoredBoolean(LATTICE_PERFORMANCE_MODE_KEY, enabled);
+    },
     wallToolsQueueIslandOpen: getStoredBoolean(WALL_TOOLS_QUEUE_ISLAND_OPEN_KEY, false),
     handleToggleLatticeVignette: (enabled) => {
         set({ latticeVignette: enabled });

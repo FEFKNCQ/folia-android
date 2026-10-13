@@ -11,6 +11,7 @@ import { useLatticeExpansionSettled } from './useLatticeExpansionSettled';
 import { prewarmLatticeLyrics } from './lyrics/prewarmLatticeLyrics';
 import { prewarmWallPosterArtwork, useWallPosterArtwork } from '../../wall/useWallPosterArtwork';
 import { countRender } from '../../../dev/renderCount';
+import { useLatticeSettingsStore } from '../../../stores/useLatticeSettingsStore';
 import {
     WALL_HANDOFF_FLIP_IN_MS,
     WALL_HANDOFF_FLIP_OUT_MS,
@@ -19,7 +20,7 @@ import {
     WALL_HANDOFF_PERSPECTIVE_PX,
 } from '../../wall/wallHandoff';
 import type { LatticePosterHandoff } from './useLatticeWallHandoff';
-import { WALL_REFLOW_CONTROLS_REVEAL, WALL_REFLOW_SPRING } from '../../wall/wallReflowMotion';
+import { WALL_REFLOW_CONTROLS_REVEAL } from '../../wall/wallReflowMotion';
 
 // Renders one poster and its expanded Player Chrome controls.
 const LatticeLyrics = lazy(() => import('./lyrics/LatticeLyrics'));
@@ -61,6 +62,12 @@ type LatticePosterProps = {
 
 // How far above its slot a landing tile starts, in world units.
 const ENTRANCE_LIFT = 90;
+
+/**
+ * 性能优先时封面最多按这么大取档（ coverUrl.ts 的档位是 256 / 512 / 1024，再往上就是原图）。
+ * 展开的那张不压：它是此刻的主角，糊了比多解一张图更碍眼。
+ */
+const PERFORMANCE_COVER_MAX_PX = 512;
 
 // Resolved at exit time from the card's own `custom`, so the leaving wave reads the live camera.
 const LEAVING: Variants = {
@@ -158,7 +165,14 @@ function LatticePoster({
     // The artwork only has to cover the card's own box, and a square cover is scaled to the longer
     // edge. Both inputs are discrete - gears are integer spans and the camera only rescales on a
     // breakpoint - so this is not a per-frame value even while the card animates towards the size.
-    const coverUrl = useWallPosterArtwork(tile.coverUrl, Math.max(rect.width, rect.height) * pixelScale);
+    // 性能优先时封面不再按设备像素取档：高 DPR 屏上那意味着每张卡都要解一张大一档的图。
+    const performanceMode = useLatticeSettingsStore(state => state.latticePerformanceMode);
+    const lightsOn = useLatticeSettingsStore(state => state.latticeLightsOn);
+    const coverTargetPx = Math.max(rect.width, rect.height) * pixelScale;
+    const coverUrl = useWallPosterArtwork(
+        tile.coverUrl,
+        performanceMode && !expanded ? Math.min(coverTargetPx, PERFORMANCE_COVER_MAX_PX) : coverTargetPx,
+    );
     // Hover and press are the last moments before the open: warming here keeps the lyric chunk,
     // the Pixi module and the first shader compile off the click path.
     const warmLyrics = () => { if (isCurrent) prewarmLatticeLyrics(); };
@@ -188,7 +202,11 @@ function LatticePoster({
         ? { duration: 0 }
         : landing === null
             ? {
-                ...WALL_REFLOW_SPRING,
+                // Width/height are layout properties. A spring keeps repainting every poster
+                // in the expanded block longer than this interaction needs; a timed ease-out
+                // gives Android WebView a bounded amount of work per selection.
+                duration: 0.46,
+                ease: [0.22, 1, 0.36, 1] as const,
                 opacity: { duration: 0.26, ease: 'easeOut' as const },
                 scaleX: { duration: 0.3, ease: 'easeOut' as const },
                 scaleY: { duration: 0.3, ease: 'easeOut' as const },
@@ -283,9 +301,11 @@ function LatticePoster({
             aria-expanded={expanded ? undefined : false}
             aria-label={`${tile.title} · ${tile.artist}`}
         >
+            {/* shade 是标题与播放条的可读性底衬，留着；tint 是纯装饰，性能优先时不渲染；
+                lights-out 开灯时是一层永远透明的黑，同样只在真的熄灯时才挂上。 */}
             <span className="lattice-poster-shade" />
-            <span className="lattice-poster-lights-out" />
-            <span className="lattice-poster-tint" />
+            {(!performanceMode || !lightsOn) && <span className="lattice-poster-lights-out" />}
+            {!performanceMode && <span className="lattice-poster-tint" />}
             <span className={`lattice-poster-badge ${isCurrent ? 'is-current' : ''}`}>
                 {isCurrent && <>{t('home.latticeBadgeNow')} · </>}
                 {String(tile.queueIndex + 1).padStart(2, '0')}
