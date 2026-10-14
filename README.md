@@ -4,19 +4,17 @@
 > 版权归原作者 Timingyyds 所有；源代码沿用原始许可证，原始版权与许可声明均完整保留、未作修改。
 > All copyright belongs to the original author Timingyyds; the source code keeps its original license and all copyright/permission notices unchanged.
 
-<div align="center">
+*⬇️ 网盘备份下载（微信扫码即可）/ Backup download (Quark Drive)*
 
-**⬇️ 网盘备份下载（夸克网盘）/ Backup download (Quark Drive)**
-
-扫码或点链接下载：**https://pan.quark.cn/s/8be3d7e03038**（口令 / share code：/~c8983bS5PB~:/）
+建议微信扫码下载：
 
 <img src="download-qr.png" width="160" alt="夸克网盘下载二维码 / Quark Drive QR code">
 
-本 fork 的 GitHub Releases（镜像备份）：[M49P6BK/folia-android/releases](https://github.com/M49P6BK/folia-android/releases)
+网盘链接 https://pan.quark.cn/s/8be3d7e03038
+
+本 fork 的 GitHub Releases（镜像备份）：[https://github.com/M49P6BK/folia-android/releases](https://github.com/M49P6BK/folia-android/releases)
 
 也可[前往原项目下载](https://github.com/Timingyyds/folia-android/releases)。 / You can also [download from the original project](https://github.com/Timingyyds/folia-android/releases).
-
-</div>
 # Folia 安卓版 (folia-android)
 
 > 📱 **Folia 音乐播放器的安卓移植版** —— 基于 [folia-major 0.7.18](https://github.com/chthollyphile/folia-major) 源码移植，**原生桥架构**：音乐请求与扫码登录全部由原生层（OkHttp + CookieManager）完成，无需电脑、无需任何外部服务器，手机上独立运行。
