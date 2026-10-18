@@ -1,6 +1,6 @@
-> **分支声明 / Fork notice**
+> **分支声明**
 > 本仓库是 [Timingyyds/folia-android](https://github.com/Timingyyds/folia-android) 的 fork（分支），作为原作者删除后的镜像备份。
-> This repository is a fork of [Timingyyds/folia-android](https://github.com/Timingyyds/folia-android), kept as a mirror backup.
+
 > 版权归原作者 Timingyyds 所有；源代码沿用原始许可证，原始版权与许可声明均完整保留、未作修改。
 > All copyright belongs to the original author Timingyyds; the source code keeps its original license and all copyright/permission notices unchanged.
 
@@ -9,7 +9,7 @@
 > **夸克网盘**：https://pan.quark.cn/s/8be3d7e03038 （微信扫码或点链接即可，含完整 release 文件）
 >
 > 若 GitHub 访问正常，也可在 [本 fork 的 Releases](https://github.com/M49P6BK/folia-android/releases) 或 [原项目 Releases](https://github.com/Timingyyds/folia-android/releases) 下载。
-<img src="download-qr.png" width="160" alt="夸克网盘下载二维码 / Quark Drive QR code">
+<img src="download-qr.png" width="160" alt="夸克网盘下载二维码">
 # Folia 安卓版 (folia-android)
 
 > 📱 **Folia 音乐播放器的安卓移植版** —— 基于 [folia-major 0.7.18](https://github.com/chthollyphile/folia-major) 源码移植，**原生桥架构**：音乐请求与扫码登录全部由原生层（OkHttp + CookieManager）完成，无需电脑、无需任何外部服务器，手机上独立运行。
